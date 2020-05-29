@@ -4,20 +4,6 @@ import json
 import tskit.provenance as provenance
 
 
-def main():
-    ts = tskit.load("slim_example.trees")
-    tables = ts.tables
-    length = np.random.randint(0, 10, tables.migrations.num_rows)
-    offset = np.cumsum(np.hstack(([0], length)), dtype=np.uint32)
-    metadata = np.random.randint(-127, 127, offset[-1]).astype(np.int8)
-    mig_dict = tables.migrations.asdict()
-    mig_dict["metadata"] = metadata
-    mig_dict["metadata_offset"] = offset
-    tables.migrations.set_columns(**mig_dict)
-    nodes = np.array([0, 1, 2, 8, 4, 5, 17])
-    sub = subset(tables, nodes)
-
-
 def _subset_ragged_col(packed, offset, subset, col="metadata"):
     if col in ["ancestral_state", "derived_state", "record", "timestamp"]:
         unpack = tskit.unpack_strings
@@ -171,6 +157,3 @@ def subset(tables, nodes):
         record=json.dumps(provenance.get_provenance_dict(parameters))
     )
     return(new)
-
-
-main()
