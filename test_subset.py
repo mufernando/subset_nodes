@@ -33,7 +33,7 @@ def get_msprime_mig_example(N=100, T=100, n=10):
 class TestSubsetTables(unittest.TestCase):
 
     def verify_subset_equality(self, tables, subset, nodes):
-        node_map = np.repeat(tskit.NULL, tables.nodes.num_rows)
+        node_map = np.repeat(tskit.NULL, tables.nodes.num_rows+1)
         indivs = []
         pops = []
         for k, n in enumerate(nodes):
@@ -58,15 +58,18 @@ class TestSubsetTables(unittest.TestCase):
                 self.assertEqual(ind_map[nn.individual], n.individual)
             if not (n.population == nn.population == tskit.NULL):
                 self.assertEqual(pop_map[nn.population], n.population)
+        self.assertEqual(subset.individuals.num_rows, len(indivs))
         for l, i in zip(indivs, subset.individuals):
             ii = tables.individuals[l]
             self.assertEqual(ii.flags, i.flags)
             self.assertEqual(ii.location, i.location)
             self.assertEqual(ii.metadata, i.metadata)
+        self.assertEqual(subset.populations.num_rows, len(pops))
         for m, p in zip(pops, subset.populations):
             pp = tables.populations[m]
             self.assertEqual(pp.metadata, p.metadata)
         edges = [i for i, e in enumerate(tables.edges) if e.parent in nodes and e.child in nodes]
+        self.assertEqual(subset.edges.num_rows, len(edges))
         for q, e in zip(edges, subset.edges):
             ee = tables.edges[q]
             self.assertEqual(ee.left, e.left)
@@ -74,22 +77,57 @@ class TestSubsetTables(unittest.TestCase):
             self.assertEqual(node_map[ee.parent], e.parent)
             self.assertEqual(node_map[ee.child], e.child)
             self.assertEqual(ee.metadata, e.metadata)
-        mutations = []
+        muts = []
         sites = []
         for j, m in enumerate(tables.mutations):
             if m.node in nodes:
-                mutations.append(j)
+                muts.append(j)
                 if m.site not in sites:
                     sites.append(m.site)
+        site_map = np.arange(tables.sites.num_rows, dtype='int32')
+        site_map[sites] = np.arange(len(sites), dtype='int32')
+        self.assertEqual(subset.sites.num_rows, len(sites))
+        for r, s in zip(sites, subset.sites):
+            ss = tables.sites[r]
+            self.assertEqual(ss.position, s.position)
+            self.assertEqual(ss.ancestral_state, s.ancestral_state)
+            self.assertEqual(ss.metadata, s.metadata)
+        self.assertEqual(subset.mutations.num_rows, len(muts))
+        for t, m in zip(muts, subset.mutations):
+            mm = tables.mutations[t]
+            self.assertEqual(site_map[mm.site], m.site)
+            self.assertEqual(node_map[mm.node], m.node)
+            self.assertEqual(mm.derived_state, m.derived_state)
+            if not mm.parent == m.parent == tskit.NULL:
+                self.assertEqual(node_map[mm.parent], m.parent)
+            self.assertEqual(mm.metadata, m.metadata)
+        migs = [i for i, mig in enumerate(tables.migrations) if mig.node in nodes]
+        self.assertEqual(subset.migrations.num_rows, len(migs))
+        for u, mig in zip(migs, subset.migrations):
+            mmig = tables.migrations[u]
+            self.assertEqual(mmig.left, mig.left)
+            self.assertEqual(mmig.right, mig.right)
+            self.assertEqual(node_map[mmig.node], mig.node)
+            self.assertEqual(pop_map[mmig.source], mig.source)
+            self.assertEqual(pop_map[mmig.dest], mig.dest)
+            self.assertEqual(mmig.time, mig.time)
+            self.assertEqual(mmig.metadata, mig.metadata)
+        nsp = subset.provenances.num_rows
+        ntp = tables.provenances.num_rows
+        self.assertTrue((nsp == ntp) or (nsp+1 == ntp))
 
-    def test_simple_example(self):
+    def test_mig_examples(self):
+        setattr(tskit.TableCollection, 'subset', subset)
         for (N, T) in [(100, 10), (1000, 100)]:
             ts = get_msprime_mig_example(N, T)
             tables = ts.tables
-            new = tables.copy()
-            n_samples = np.random.randint(1, ts.num_nodes, 1)[0]
-            nodes = np.random.choice(np.arange(ts.num_nodes), n_samples,
-                                     replace=False)
-            setattr(tskit.TableCollection, 'subset', subset)
-            new.subset(nodes, record_provenance=False)
-            self.verify_subset_equality(tables, new, nodes)
+            n_samples = np.random.randint(1, ts.num_nodes, 10)
+            for n in n_samples:
+                new = tables.copy()
+                nodes = np.random.choice(np.arange(ts.num_nodes), n,
+                                         replace=False)
+                new.subset(nodes, record_provenance=False)
+                self.verify_subset_equality(tables, new, nodes)
+            # assert raises error when empty nodes
+            with self.assertRaises(ValueError):
+                new.subset(np.array([]))
