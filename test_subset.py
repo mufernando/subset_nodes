@@ -2,35 +2,41 @@ import unittest
 import numpy as np
 import msprime
 import tskit
+import tsutil
 from subset import subset
 
 
-def get_msprime_mig_example(N=100, T=100, n=10):
-    M = [
-        [0.0, 0.0],
-        [0.0, 0.0]
-    ]
-    population_configurations = [
-        msprime.PopulationConfiguration(sample_size=n),
-        msprime.PopulationConfiguration(sample_size=n)
-    ]
-    demographic_events = [
-        msprime.MassMigration(T, source=1, dest=0, proportion=1),
-        msprime.CensusEvent(time=T)
-    ]
-    ts = msprime.simulate(
-        Ne=N,
-        population_configurations=population_configurations,
-        demographic_events=demographic_events,
-        migration_matrix=M,
-        length=2e4,
-        recombination_rate=1e-8,
-        mutation_rate=1e-8,
-        record_migrations=True)
-    return ts
-
-
 class TestSubsetTables(unittest.TestCase):
+
+    seed = 12345
+
+    def get_msprime_mig_example(self, N=100, T=100, n=10,
+                                mutations_per_branch=0):
+        M = [
+            [0.0, 0.0],
+            [0.0, 0.0]
+        ]
+        population_configurations = [
+            msprime.PopulationConfiguration(sample_size=n),
+            msprime.PopulationConfiguration(sample_size=n)
+        ]
+        demographic_events = [
+            msprime.MassMigration(T, source=1, dest=0, proportion=1),
+            msprime.CensusEvent(time=T)
+        ]
+        ts = msprime.simulate(
+            Ne=N,
+            population_configurations=population_configurations,
+            demographic_events=demographic_events,
+            migration_matrix=M,
+            length=2e4,
+            recombination_rate=1e-8,
+            mutation_rate=1e-8,
+            record_migrations=True,
+            random_seed=self.seed)
+        if mutations_per_branch > 0:
+            ts = tsutil.insert_branch_mutations(ts, mutations_per_branch)
+        return ts
 
     def verify_subset_equality(self, tables, subset, nodes):
         # adding one so the last element always maps to NULL (-1 -> -1)
@@ -81,7 +87,7 @@ class TestSubsetTables(unittest.TestCase):
                 muts.append(j)
                 if m.site not in sites:
                     sites.append(m.site)
-        site_map = np.arange(tables.sites.num_rows, dtype='int32')
+        site_map = np.repeat(-1, tables.sites.num_rows)
         site_map[sites] = np.arange(len(sites), dtype='int32')
         mutation_map = np.repeat(tskit.NULL, tables.mutations.num_rows+1)
         mutation_map[muts] = np.arange(len(muts), dtype='int32')
@@ -92,11 +98,10 @@ class TestSubsetTables(unittest.TestCase):
         self.assertEqual(subset.mutations.num_rows, len(muts))
         for t, m in zip(muts, subset.mutations):
             mm = tables.mutations[t]
+            self.assertEqual(mutation_map[mm.parent], m.parent)
             self.assertEqual(site_map[mm.site], m.site)
             self.assertEqual(node_map[mm.node], m.node)
             self.assertEqual(mm.derived_state, m.derived_state)
-            if not mm.parent == m.parent == tskit.NULL:
-                self.assertEqual(node_map[mm.parent], m.parent)
             self.assertEqual(mm.metadata, m.metadata)
         migs = [i for i, mig in enumerate(tables.migrations) if mig.node in nodes]
         self.assertEqual(subset.migrations.num_rows, len(migs))
@@ -113,11 +118,22 @@ class TestSubsetTables(unittest.TestCase):
         ntp = tables.provenances.num_rows
         self.assertTrue((nsp == ntp) or (nsp == ntp+1))
 
+    def test_mig_back_mut_example(self):
+        np.random.seed(self.seed)
+        setattr(tskit.TableCollection, 'subset', subset)
+        ts = self.get_msprime_mig_example(1000, 50, mutations_per_branch=10)
+        tables = ts.tables
+        new = tables.copy()
+        nodes = np.random.choice(np.arange(ts.num_nodes),
+                                 ts.num_nodes//2, replace=False)
+        new.subset(nodes, record_provenance=False)
+        self.verify_subset_equality(tables, new, nodes)
+
     def test_mig_examples(self):
+        np.random.seed(self.seed)
         setattr(tskit.TableCollection, 'subset', subset)
         for (N, T) in [(100, 10), (1000, 100)]:
-            ts = get_msprime_mig_example(N, T)
-            # TODO: test with discrete mutations bc of the mapping of parents
+            ts = self.get_msprime_mig_example(N, T)
             tables = ts.tables
             n_samples = np.random.randint(1, ts.num_nodes, 10)
             for n in n_samples:
