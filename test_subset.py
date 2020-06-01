@@ -117,6 +117,7 @@ class TestSubsetTables(unittest.TestCase):
         setattr(tskit.TableCollection, 'subset', subset)
         for (N, T) in [(100, 10), (1000, 100)]:
             ts = get_msprime_mig_example(N, T)
+            # TODO: test with discrete mutations bc of the mapping of parents
             tables = ts.tables
             n_samples = np.random.randint(1, ts.num_nodes, 10)
             for n in n_samples:
