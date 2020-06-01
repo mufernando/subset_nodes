@@ -85,7 +85,7 @@ def subset(self, nodes, record_provenance=True):
     # mapping node ids in full to subsetted table
     # making the node map +1 bc last will be mapping -1 to -1
     node_map = np.arange(tables.nodes.num_rows+1, dtype='int32')
-    node_map[-1] = -1
+    node_map[-1] = tskit.NULL
     node_map[nodes] = np.arange(self.nodes.num_rows, dtype='int32')
     # subsetting migrations tables
     mig = tables.migrations
