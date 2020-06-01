@@ -145,13 +145,17 @@ def subset(self, nodes, record_provenance=True):
                                )
         site_map = np.arange(tables.sites.num_rows, dtype='int32')
         site_map[keep_sites] = np.arange(self.sites.num_rows, dtype='int32')
+        mutation_map = np.arange(tables.mutations.num_rows, dtype='int32')
+        mutation_map[keep_muts] = np.arange(np.count_nonzero(keep_muts), dtype='int32')
+        # adding tskit.NULL to the end to map -1 -> -1
+        mutation_map = np.concatenate((mutation_map, np.array([tskit.NULL], dtype='int32')))
         self.mutations.set_columns(site=site_map[old_sites],
                                    node=node_map[m.node[keep_muts]],
                                    **_subset_ragged_col(m.derived_state,
                                                         m.derived_state_offset,
                                                         keep_muts,
                                                         "derived_state"),
-                                   parent=node_map[m.parent[keep_muts]],
+                                   parent=mutation_map[m.parent[keep_muts]],
                                    **_subset_ragged_col(m.metadata,
                                                         m.metadata_offset,
                                                         keep_muts)

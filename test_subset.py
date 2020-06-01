@@ -60,13 +60,11 @@ class TestSubsetTables(unittest.TestCase):
         self.assertEqual(subset.individuals.num_rows, len(indivs))
         for l, i in zip(indivs, subset.individuals):
             ii = tables.individuals[l]
-            self.assertEqual(ii.flags, i.flags)
-            self.assertEqual(ii.location, i.location)
-            self.assertEqual(ii.metadata, i.metadata)
+            self.assertEqual(ii, i)
         self.assertEqual(subset.populations.num_rows, len(pops))
         for m, p in zip(pops, subset.populations):
             pp = tables.populations[m]
-            self.assertEqual(pp.metadata, p.metadata)
+            self.assertEqual(pp, p)
         edges = [i for i, e in enumerate(tables.edges) if e.parent in nodes and e.child in nodes]
         self.assertEqual(subset.edges.num_rows, len(edges))
         for q, e in zip(edges, subset.edges):
@@ -85,12 +83,12 @@ class TestSubsetTables(unittest.TestCase):
                     sites.append(m.site)
         site_map = np.arange(tables.sites.num_rows, dtype='int32')
         site_map[sites] = np.arange(len(sites), dtype='int32')
+        mutation_map = np.repeat(tskit.NULL, tables.mutations.num_rows+1)
+        mutation_map[muts] = np.arange(len(muts), dtype='int32')
         self.assertEqual(subset.sites.num_rows, len(sites))
         for r, s in zip(sites, subset.sites):
             ss = tables.sites[r]
-            self.assertEqual(ss.position, s.position)
-            self.assertEqual(ss.ancestral_state, s.ancestral_state)
-            self.assertEqual(ss.metadata, s.metadata)
+            self.assertEqual(ss, s)
         self.assertEqual(subset.mutations.num_rows, len(muts))
         for t, m in zip(muts, subset.mutations):
             mm = tables.mutations[t]
