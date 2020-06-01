@@ -24,6 +24,8 @@ def _subset_ragged_col(packed, offset, subset, col="metadata"):
 def subset(self, nodes, record_provenance=True):
     if nodes.shape[0] == 0:
         raise ValueError("Nodes cannot be empty.")
+    if np.max(nodes) >= self.nodes.num_rows:
+        raise ValueError("One of the nodes is not in the TableCollection.")
     tables = self.copy()
     n = tables.nodes
     # figuring out which individuals to keep
@@ -81,7 +83,9 @@ def subset(self, nodes, record_provenance=True):
                                                 n.metadata_offset, nodes)
                            )
     # mapping node ids in full to subsetted table
-    node_map = np.arange(tables.nodes.num_rows, dtype='int32')
+    # making the node map +1 bc last will be mapping -1 to -1
+    node_map = np.arange(tables.nodes.num_rows+1, dtype='int32')
+    node_map[-1] = -1
     node_map[nodes] = np.arange(self.nodes.num_rows, dtype='int32')
     # subsetting migrations tables
     mig = tables.migrations
@@ -89,9 +93,9 @@ def subset(self, nodes, record_provenance=True):
     if keep_mig.shape[0] == 0:
         self.migrations.clear()
     else:
-        new_sources = np.array([pop_map[s] for s in mig.source[keep_mig]],
+        new_sources = np.array([pop_map.get(s, -1) for s in mig.source[keep_mig]],
                                dtype='int32')
-        new_dests = np.array([pop_map[s] for s in mig.dest[keep_mig]],
+        new_dests = np.array([pop_map.get(d, -1) for d in mig.dest[keep_mig]],
                              dtype='int32')
         self.migrations.set_columns(left=mig.left[keep_mig],
                                     right=mig.right[keep_mig],
