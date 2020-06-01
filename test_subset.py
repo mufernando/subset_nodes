@@ -33,6 +33,7 @@ def get_msprime_mig_example(N=100, T=100, n=10):
 class TestSubsetTables(unittest.TestCase):
 
     def verify_subset_equality(self, tables, subset, nodes):
+        # adding one so the last element always maps to NULL (-1 -> -1)
         node_map = np.repeat(tskit.NULL, tables.nodes.num_rows+1)
         indivs = []
         pops = []
@@ -44,9 +45,9 @@ class TestSubsetTables(unittest.TestCase):
                 indivs.append(ind)
             if pop not in pops and pop != tskit.NULL:
                 pops.append(pop)
-        ind_map = np.repeat(tskit.NULL, tables.individuals.num_rows)
+        ind_map = np.repeat(tskit.NULL, tables.individuals.num_rows+1)
         ind_map[indivs] = np.arange(len(indivs), dtype='int32')
-        pop_map = np.repeat(tskit.NULL, tables.populations.num_rows)
+        pop_map = np.repeat(tskit.NULL, tables.populations.num_rows+1)
         pop_map[pops] = np.arange(len(pops), dtype='int32')
         self.assertEqual(subset.nodes.num_rows, len(nodes))
         for k, n in zip(nodes, subset.nodes):
@@ -54,10 +55,8 @@ class TestSubsetTables(unittest.TestCase):
             self.assertEqual(nn.time, n.time)
             self.assertEqual(nn.flags, n.flags)
             self.assertEqual(nn.metadata, n.metadata)
-            if not (n.individual == nn.individual == tskit.NULL):
-                self.assertEqual(ind_map[nn.individual], n.individual)
-            if not (n.population == nn.population == tskit.NULL):
-                self.assertEqual(pop_map[nn.population], n.population)
+            self.assertEqual(ind_map[nn.individual], n.individual)
+            self.assertEqual(pop_map[nn.population], n.population)
         self.assertEqual(subset.individuals.num_rows, len(indivs))
         for l, i in zip(indivs, subset.individuals):
             ii = tables.individuals[l]
