@@ -84,9 +84,10 @@ def subset(self, nodes, record_provenance=True):
                            )
     # mapping node ids in full to subsetted table
     # making the node map +1 bc last will be mapping -1 to -1
-    node_map = np.arange(tables.nodes.num_rows+1, dtype='int32')
+    node_map = np.repeat(tskit.NULL, tables.nodes.num_rows+1)
     node_map[-1] = tskit.NULL
-    node_map[nodes] = np.arange(self.nodes.num_rows, dtype='int32')
+    node_map[nodes] = np.arange(self.nodes.num_rows)
+    node_map = node_map.astype('int32')
     # subsetting migrations tables
     mig = tables.migrations
     keep_mig = np.isin(mig.node, nodes)
@@ -143,10 +144,12 @@ def subset(self, nodes, record_provenance=True):
                                                     s.metadata_offset,
                                                     keep_sites)
                                )
-        site_map = np.arange(tables.sites.num_rows, dtype='int32')
-        site_map[keep_sites] = np.arange(self.sites.num_rows, dtype='int32')
-        mutation_map = np.arange(tables.mutations.num_rows, dtype='int32')
-        mutation_map[keep_muts] = np.arange(np.count_nonzero(keep_muts), dtype='int32')
+        site_map = np.repeat(-1, tables.sites.num_rows)
+        site_map[keep_sites] = np.arange(self.sites.num_rows)
+        site_map = site_map.astype('int32')
+        mutation_map = np.repeat(tskit.NULL, tables.mutations.num_rows)
+        mutation_map[keep_muts] = np.arange(np.count_nonzero(keep_muts))
+        mutation_map = mutation_map.astype('int32')
         # adding tskit.NULL to the end to map -1 -> -1
         mutation_map = np.concatenate((mutation_map, np.array([tskit.NULL], dtype='int32')))
         self.mutations.set_columns(site=site_map[old_sites],
