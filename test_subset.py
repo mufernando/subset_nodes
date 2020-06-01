@@ -114,7 +114,7 @@ class TestSubsetTables(unittest.TestCase):
             self.assertEqual(mmig.metadata, mig.metadata)
         nsp = subset.provenances.num_rows
         ntp = tables.provenances.num_rows
-        self.assertTrue((nsp == ntp) or (nsp+1 == ntp))
+        self.assertTrue((nsp == ntp) or (nsp == ntp+1))
 
     def test_mig_examples(self):
         setattr(tskit.TableCollection, 'subset', subset)
